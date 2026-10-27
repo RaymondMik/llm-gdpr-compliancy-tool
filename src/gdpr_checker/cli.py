@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
-from .analyzer import DEFAULT_PROVIDER, PROVIDERS, analyze, check_provider, default_model
+from .analyzer import DEFAULT_MODEL, analyze, check_ollama, default_model
 from .prompts import build_user_prompt
 from .scraper import scan_website
 
@@ -27,19 +27,13 @@ def _normalise_url(raw: str) -> str:
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="gdpr-checker",
-        description="Scan a website with Playwright and ask an LLM to assess its GDPR compliance.",
+        description="Scan a website with Playwright and ask a local Ollama model to assess its GDPR compliance.",
     )
     parser.add_argument("url", help="Full website URL, e.g. https://example.com")
     parser.add_argument(
-        "--provider",
-        choices=PROVIDERS,
-        default=DEFAULT_PROVIDER,
-        help=f"LLM backend: a local Ollama model or the OpenAI API (default: {DEFAULT_PROVIDER})",
-    )
-    parser.add_argument(
         "--model",
         default=None,
-        help="Model name (default: llama3.2 for ollama, gpt-4.1-mini for openai; or set GDPR_CHECKER_MODEL)",
+        help=f"Ollama model to use (default: {DEFAULT_MODEL}, or set GDPR_CHECKER_MODEL)",
     )
     parser.add_argument(
         "--ollama-host",
@@ -60,9 +54,9 @@ def main(argv: list[str] | None = None) -> None:
     url = _normalise_url(args.url)
     if args.ollama_host:
         os.environ["OLLAMA_HOST"] = args.ollama_host
-    model = args.model or default_model(args.provider)
+    model = args.model or default_model()
     if not args.dry_run:
-        check_provider(args.provider, model)  # fail fast before spending time on the browser
+        check_ollama(model)  # fail fast before spending time on the browser
 
     print(f"Scanning {url} ...", file=sys.stderr)
     try:
@@ -87,9 +81,9 @@ def main(argv: list[str] | None = None) -> None:
             return
         print("=" * 80)
 
-    print(f"Asking {model} via {args.provider} for an assessment ...\n", file=sys.stderr)
+    print(f"Asking {model} via Ollama for an assessment ...\n", file=sys.stderr)
     try:
-        for chunk in analyze(result, provider=args.provider, model=model, stream=not args.no_stream):
+        for chunk in analyze(result, model=model, stream=not args.no_stream):
             print(chunk, end="", flush=True)
     except KeyboardInterrupt:
         sys.exit("\nInterrupted.")

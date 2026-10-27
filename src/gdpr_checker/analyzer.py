@@ -1,8 +1,7 @@
-"""Send the collected evidence to an LLM and stream back the assessment.
+"""Send the collected evidence to a local Ollama model and stream back the assessment.
 
-Two providers are supported through the OpenAI Python SDK:
-- "ollama": a local model served by Ollama's OpenAI-compatible endpoint (default)
-- "openai": the hosted OpenAI API
+The OpenAI Python SDK is used as the client, pointed at Ollama's OpenAI-compatible
+endpoint (http://localhost:11434/v1 by default).
 """
 
 from __future__ import annotations
@@ -19,13 +18,8 @@ from openai import OpenAI
 from .prompts import SYSTEM_PROMPT, build_user_prompt
 from .scraper import ScanResult
 
-PROVIDERS = ("ollama", "openai")
-DEFAULT_PROVIDER = os.environ.get("GDPR_CHECKER_PROVIDER", "ollama")
 DEFAULT_OLLAMA_HOST = "http://localhost:11434"
-DEFAULT_MODELS = {
-    "ollama": "llama3.2",
-    "openai": "gpt-4.1-mini",
-}
+DEFAULT_MODEL = "llama3.2"
 
 
 def ollama_host() -> str:
@@ -35,8 +29,8 @@ def ollama_host() -> str:
     return host
 
 
-def default_model(provider: str) -> str:
-    return os.environ.get("GDPR_CHECKER_MODEL") or DEFAULT_MODELS[provider]
+def default_model() -> str:
+    return os.environ.get("GDPR_CHECKER_MODEL", DEFAULT_MODEL)
 
 
 def _ollama_models(host: str) -> list[str]:
@@ -44,13 +38,8 @@ def _ollama_models(host: str) -> list[str]:
         return [m["name"] for m in json.load(resp).get("models", [])]
 
 
-def check_provider(provider: str, model: str) -> None:
-    """Exit early with a helpful message if the provider is not usable."""
-    if provider == "openai":
-        if not os.environ.get("OPENAI_API_KEY"):
-            sys.exit("OPENAI_API_KEY is not set. Put it in a .env file or export it in your shell.")
-        return
-
+def check_ollama(model: str) -> None:
+    """Exit early with a helpful message if Ollama is not running or the model is missing."""
     host = ollama_host()
     try:
         models = _ollama_models(host)
@@ -68,29 +57,19 @@ def check_provider(provider: str, model: str) -> None:
         )
 
 
-def _client(provider: str) -> OpenAI:
-    if provider == "openai":
-        return OpenAI()
+def _client() -> OpenAI:
     # Ollama ignores the API key but the SDK requires a non-empty value.
     return OpenAI(base_url=f"{ollama_host()}/v1", api_key="ollama", timeout=600)
 
 
-def analyze(
-    result: ScanResult,
-    *,
-    provider: str = DEFAULT_PROVIDER,
-    model: str | None = None,
-    stream: bool = True,
-) -> Iterator[str]:
+def analyze(result: ScanResult, *, model: str | None = None, stream: bool = True) -> Iterator[str]:
     """Yield chunks of the assessment text as they arrive."""
-    if provider not in PROVIDERS:
-        raise ValueError(f"Unknown provider '{provider}', expected one of {PROVIDERS}")
-    model = model or default_model(provider)
+    model = model or default_model()
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": build_user_prompt(result)},
     ]
-    client = _client(provider)
+    client = _client()
 
     if stream:
         with client.chat.completions.stream(model=model, messages=messages, temperature=0.2) as events:
