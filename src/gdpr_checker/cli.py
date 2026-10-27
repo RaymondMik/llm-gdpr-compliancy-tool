@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
-from .analyzer import DEFAULT_MODEL, analyze, require_api_key
+from .analyzer import DEFAULT_PROVIDER, PROVIDERS, analyze, check_provider, default_model
 from .prompts import build_user_prompt
 from .scraper import scan_website
 
@@ -29,7 +30,22 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         description="Scan a website with Playwright and ask an LLM to assess its GDPR compliance.",
     )
     parser.add_argument("url", help="Full website URL, e.g. https://example.com")
-    parser.add_argument("--model", default=DEFAULT_MODEL, help=f"OpenAI model to use (default: {DEFAULT_MODEL})")
+    parser.add_argument(
+        "--provider",
+        choices=PROVIDERS,
+        default=DEFAULT_PROVIDER,
+        help=f"LLM backend: a local Ollama model or the OpenAI API (default: {DEFAULT_PROVIDER})",
+    )
+    parser.add_argument(
+        "--model",
+        default=None,
+        help="Model name (default: llama3.2 for ollama, gpt-4.1-mini for openai; or set GDPR_CHECKER_MODEL)",
+    )
+    parser.add_argument(
+        "--ollama-host",
+        default=None,
+        help="Ollama base URL (default: http://localhost:11434, or OLLAMA_HOST)",
+    )
     parser.add_argument("--max-chars", type=int, default=12_000, help="Max characters of page/policy text sent to the LLM")
     parser.add_argument("--no-stream", action="store_true", help="Wait for the full answer instead of streaming")
     parser.add_argument("--headful", action="store_true", help="Show the browser window while scanning")
@@ -42,8 +58,11 @@ def main(argv: list[str] | None = None) -> None:
     load_dotenv()
     args = _parse_args(argv)
     url = _normalise_url(args.url)
+    if args.ollama_host:
+        os.environ["OLLAMA_HOST"] = args.ollama_host
+    model = args.model or default_model(args.provider)
     if not args.dry_run:
-        require_api_key()  # fail fast before spending time on the browser
+        check_provider(args.provider, model)  # fail fast before spending time on the browser
 
     print(f"Scanning {url} ...", file=sys.stderr)
     try:
@@ -68,9 +87,9 @@ def main(argv: list[str] | None = None) -> None:
             return
         print("=" * 80)
 
-    print(f"Asking {args.model} for an assessment ...\n", file=sys.stderr)
+    print(f"Asking {model} via {args.provider} for an assessment ...\n", file=sys.stderr)
     try:
-        for chunk in analyze(result, model=args.model, stream=not args.no_stream):
+        for chunk in analyze(result, provider=args.provider, model=model, stream=not args.no_stream):
             print(chunk, end="", flush=True)
     except KeyboardInterrupt:
         sys.exit("\nInterrupted.")
