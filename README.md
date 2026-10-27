@@ -6,7 +6,7 @@ This tool is designed to work with **[Ollama](https://ollama.com)** and the **`l
 Ollama must be running on your machine at its default address, `http://localhost:11434`,
 before you run the checker.
 
-## Disclaimer: this tool does not provide legal advice of any kind.**
+## Disclaimer: this tool does not provide legal advice
 It produces an automated *technical* assessment based on what a browser can observe
 (cookies, network requests, page content). It cannot determine whether a website is actually
 GDPR compliant, and its output must not be relied upon as a legal opinion. Consult a qualified
