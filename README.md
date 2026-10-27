@@ -1,8 +1,12 @@
 # gdpr-checker
 
 Scans a website with Playwright, collects GDPR-relevant evidence (cookies set before consent,
-third-party trackers, consent banner, privacy policy, forms) and asks a **local LLM running in
-Ollama** for a compliance assessment printed straight to the terminal. Nothing leaves your machine.
+third-party trackers, consent banner, privacy policy, forms) and asks a local LLM for a
+compliance assessment printed straight to the terminal. Nothing leaves your machine.
+
+This tool is designed to work with **[Ollama](https://ollama.com)** and the **`llama3.2`** model.
+Ollama must be running on your machine at its default address, `http://localhost:11434`,
+before you run the checker.
 
 ## Setup
 
@@ -13,17 +17,26 @@ uv run playwright install chromium
 
 ### Ollama
 
-1. Install Ollama from https://ollama.com and make sure it is running
-   (the desktop app, or `ollama serve` in a terminal). It listens on
-   `http://localhost:11434` by default.
-2. Pull a model, for example:
+1. Install Ollama from https://ollama.com.
+2. Pull the `llama3.2` model:
 
    ```bash
    ollama pull llama3.2
    ```
 
-The tool checks that Ollama is reachable and the model is pulled before it starts scanning,
-and tells you what to do if not.
+3. Make sure Ollama is running before you start the checker, either via the desktop app
+   or with `ollama serve` in a terminal. It must be reachable at the default
+   `http://localhost:11434`. You can confirm with:
+
+   ```bash
+   curl http://localhost:11434/api/tags
+   ```
+
+The checker verifies that Ollama is reachable and that `llama3.2` is pulled before it
+starts scanning, and prints what to do if either check fails.
+
+Other Ollama models can be used with `--model`, and a non-default Ollama address with
+`--ollama-host`, but `llama3.2` on `localhost:11434` is the supported configuration.
 
 ## Usage
 
