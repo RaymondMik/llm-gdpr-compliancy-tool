@@ -1,0 +1,21 @@
+[project]
+name = "gdpr-checker"
+version = "0.1.0"
+description = "Scan a website with Playwright and assess GDPR compliance with an LLM"
+readme = "README.md"
+authors = [
+    { name = "Ramón Miklus", email = "ramon.miklus@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=3.39.0",
+    "playwright>=1.64.1",
+    "python-dotenv>=1.2.4",
+]
+
+[project.scripts]
+gdpr-checker = "gdpr_checker:main"
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
